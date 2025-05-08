@@ -1,0 +1,160 @@
+#include <ESP8266WiFi.h>
+#include <Servo.h>
+#include <ESP8266WebServer.h>
+#include <Stepper.h> // Include the Stepper library
+
+// Define button and servo pins
+#define buttonPin1 D3 // Button 1 connected to D3
+#define buttonPin2 D2 // Button 2 connected to D2
+#define servoPin1 D4  // Servo 1 connected to D4
+#define servoPin2 D5  // Servo 2 connected to D5
+
+// Define shared stepper motor pins
+#define stepPinBlue D6    // Shared Blue wire connected to D6 (GPIO 12)
+#define stepPinPink D7    // Shared Pink wire connected to D7 (GPIO 13)
+#define stepPinYellow D1  // Shared Yellow wire connected to D1 (GPIO 15)
+#define stepPinOrange D0  // Shared Orange wire connected to D0 (GPIO 16)
+
+Servo servo1;  // Create Servo object for Servo 1
+Servo servo2;  // Create Servo object for Servo 2
+
+// Create Stepper objects for the stepper motors
+const int stepsPerRevolution = 2048; // Adjust based on your stepper motor
+Stepper stepper1(stepsPerRevolution, stepPinBlue, stepPinPink, stepPinYellow, stepPinOrange);
+Stepper stepper2(stepsPerRevolution, stepPinBlue, stepPinPink, stepPinYellow, stepPinOrange); // Shares pins with stepper1
+
+// Create the web server instance on port 80
+ESP8266WebServer server(80);
+
+// Wi-Fi credentials
+const char* ssid = "Aiz";  // Replace with your Wi-Fi SSID
+const char* password = "pppppppp";   // Replace with your Wi-Fi password
+
+unsigned long lastDebounceTime1 = 0;
+unsigned long lastDebounceTime2 = 0;
+const unsigned long debounceDelay = 50;
+
+// Function to control stepper motor
+bool controlStepper(Stepper& stepper, int durationMs, int speed) {
+    unsigned long startTime = millis();
+    stepper.setSpeed(speed);
+    while (millis() - startTime < durationMs) {
+        stepper.step(stepsPerRevolution / 4); // Rotate a quarter revolution
+        yield(); // Prevent watchdog timer reset
+    }
+    return true; // Indicate success
+}
+
+// Function to control servo
+bool controlServo(Servo& servo, int angle, int delayMs) {
+    servo.write(angle); // Move servo to the specified angle
+    delay(delayMs);     // Keep it in position for the specified time
+    servo.write(0);     // Reset servo to 0 degrees
+    return true; // Indicate success
+}
+
+// Function to handle the feed request from the PHP code
+void handleFeedNow() {
+    String servoNumber = server.arg("servo"); // Get the servo number from the query parameter
+    
+    if (servoNumber == "1") {
+        Serial.println("HTTP request: Activating Stepper Motor 1 and Servo 1...");
+        controlStepper(stepper1, 3000, 10); // Run Stepper Motor 1 for 3 seconds
+        controlServo(servo1, 180, 2000);    // Open Servo 1 for 2 seconds
+        server.send(200, "text/plain", "Servo 1 and Stepper Motor 1 triggered");
+    } 
+    else if (servoNumber == "2") {
+        Serial.println("HTTP request: Activating Stepper Motor 2 and Servo 2...");
+        controlStepper(stepper2, 3000, 10); // Run Stepper Motor 2 for 3 seconds
+        controlServo(servo2, 180, 2000);    // Open Servo 2 for 2 seconds
+        server.send(200, "text/plain", "Servo 2 and Stepper Motor 2 triggered");
+    } 
+    else {
+        server.send(400, "text/plain", "Invalid servo number");
+    }
+}
+
+void setup() {  
+    Serial.begin(115200);  // Initialize serial communication
+    Serial.println("Initializing Wi-Fi...");
+
+    // Connect to Wi-Fi
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\nConnected to Wi-Fi");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());  // Display IP address for reference
+
+    // Attach servos to their respective pins
+    servo1.attach(servoPin1);
+    servo2.attach(servoPin2);
+
+    // Set buttons as input
+    pinMode(buttonPin1, INPUT_PULLUP);
+    pinMode(buttonPin2, INPUT_PULLUP);
+
+    // Initialize the stepper motors
+    stepper1.setSpeed(10); // Set initial speed for Stepper Motor 1
+    stepper2.setSpeed(10); // Set initial speed for Stepper Motor 2
+
+    // Define the '/feednow' route to handle GET requests
+    server.on("/feednow", HTTP_GET, handleFeedNow);
+
+    // Start the web server
+    server.begin();
+    Serial.println("Server started.");
+}
+
+void loop() {
+    // Maintain the Wi-Fi connection and handle incoming HTTP requests
+    server.handleClient();
+
+    // Read the button states
+    int buttonState1 = digitalRead(buttonPin1);
+    int buttonState2 = digitalRead(buttonPin2);
+
+    // Button 1 pressed -> Stepper Motor 1 and Servo 1 control
+    if (buttonState1 == LOW && (millis() - lastDebounceTime1) > debounceDelay) {
+        lastDebounceTime1 = millis();
+        Serial.println("Button 1 pressed! Running Stepper Motor 1 and opening Servo 1...");
+
+        // Check if Stepper 1 is running
+        if (controlStepper(stepper2, 3000, 10)) {
+            Serial.println("Stepper 1 is running.....");
+        } else {
+            Serial.println("Stepper 1 is not running.....");
+        }
+
+        // Check if Servo 1 is running
+        if (controlServo(servo2, 180, 2000)) {
+            Serial.println("Servo 1 is running.....");
+        } else {
+            Serial.println("Servo 1 is not running.....");
+        }
+    }
+
+    // Button 2 pressed -> Stepper Motor 2 and Servo 2 control
+    if (buttonState2 == LOW && (millis() - lastDebounceTime2) > debounceDelay) {
+        lastDebounceTime2 = millis();
+        Serial.println("Button 2 pressed! Running Stepper Motor 2 and opening Servo 2...");
+
+        if(controlStepper(stepper2, 3000, 10) == 0){
+            Serial.println("Stepper 2 is not running.....");
+        } else {
+            Serial.println("Stepper 2 is running.....");
+        }
+
+        if(controlServo(servo2, 180, 2000) == 0){
+            Serial.println("Servo 2 is not running.....");
+        } else {
+            Serial.println("Servo 2 is running.....");
+        }
+    }
+
+
+
+    delay(100); // Main loop delay for stability
+}

@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log; // <-- Add this line
+
+class FeedingController extends Controller
+{
+    public function feedNow(Request $request)
+    {
+        // Get the servo number from the button
+        $servoNumber = $request->input('servoNumber'); // This will be either 1 or 2
+    
+       
+        $esp8266Ip = "http://192.168.167.149/feednow?servo=" . $servoNumber;
+    
+        // Use file_get_contents or curl to send the request to ESP8266
+        $response = file_get_contents($esp8266Ip);
+    
+    
+        // Redirect back to the 'toManage' route after triggering the servo
+        return redirect()->route('toManage');
+    }
+}

@@ -1,0 +1,21 @@
+Button 1:
+One leg of the button to D3 (GPIO 0).
+The other leg to GND.
+Enable internal pull-up resistor in the code using INPUT_PULLUP.
+
+Button 2:
+One leg of the button to D2 (GPIO 4).
+The other leg to GND.
+Enable internal pull-up resistor in the code using INPUT_PULLUP.
+
+Servo 1:
+Signal Pin (yellow or orange): Connect to D4 (GPIO 2).
+VCC (red): Connect to the 5V output of the external power supply.
+GND (brown or black): Connect to the GND of the external power supply.
+
+Servo 2:
+Signal Pin (yellow or orange): Connect to D5 (GPIO 14).
+VCC (red): Connect to the 5V output of the external power supply.
+GND (brown or black): Connect to the GND of the external power supply.
+
+
